@@ -48,7 +48,7 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
                 // download the file
                 const fileDownloaded = await downloadFile(downloadLink.link, downloadLink.name, token, output)
                 if (fileDownloaded) {
-                  await extractData(downloadLink, updatePath)
+                  await extractData(downloadLink, updatePath, output)
                   // clean up the downloads
                   fs.unlinkSync(getAbsPath(downloadLink.name))
                   // finish
@@ -174,7 +174,7 @@ function getAbsPath (relPath) {
   }
 }
 
-function extractData (downloadLink, updatePath) {
+function extractData (downloadLink, updatePath, output) {
   return new Promise(resolve => {
     if (path.extname(downloadLink.name) === '.gz') {
       // extract from tar ball or gzip
