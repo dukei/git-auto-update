@@ -1,7 +1,7 @@
 ```
 name:         | git-auto-update-release
 compiler:     | nodejs
-version:      | v1.1.4, 20191103
+version:      | v1.1.6, 20191103
 ```
 
 # git-auto-update
@@ -33,3 +33,6 @@ The defaults are as follows:
  ```
   { useMaster : false, regex: { windowsRegex : /-windows-/, linuxRegex : /-linux-/, macRegex : /-darwin-/ }, updatePath : './' }
  ```
+
+## Return Value
+Returns a new promise to be able to run asynchronously. If updated it will return true and if not it will return false.

@@ -28,68 +28,74 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
       url = url.concat(`?access_token=${token}`)
     }
     // check for updates
-    request.get({ url, headers: { 'User-Agent': 'git-auto-update' } }, async (error, response, body) => {
-      if (!error && response.statusCode === 200) {
-        body = JSON.parse(body)
-        if (checkNeedForUpdate(body, version)) {
-          // update if necesarry
-          if (_.has(body, 'assets') && !useMaster) {
-            var downloadLink = false
-            if (osFamily.linux) {
-              downloadLink = parseDownloadLink(body, regex.linuxRegex, useMaster)
-            } else if (osFamily.win) {
-              downloadLink = parseDownloadLink(body, regex.windowsRegex, useMaster)
-            } else if (osFamily.mac) {
-              downloadLink = parseDownloadLink(body, regex.macRegex, useMaster)
-            }
-            if (downloadLink) {
-              // download the file
-              const fileDownloaded = await downloadFile(downloadLink.link, downloadLink.name, token)
-              if (fileDownloaded) {
-                var extracting = new Promise(resolve => {
-                  if (path.extname(downloadLink.name) === '.gz') {
-                    // extract from tar ball or gzip
-                    console.log(chalk.keyword('orange')('Extracting gzip archieve file...'))
-                    fs.createReadStream(getAbsPath(downloadLink.name))
-                      .pipe(ungzip())
-                      .pipe(untar.extract(getAbsPath(updatePath)))
-                      .on('finish', () => {
-                        resolve(true)
-                      })
-                  } else if (path.extname(downloadLink.name) === '.tar') {
-                    console.log(chalk.keyword('orange')('Extracting tarball archieve file...'))
-                    fs.createReadStream(getAbsPath(downloadLink.name))
-                      .pipe(untar.extract(getAbsPath(updatePath)))
-                      .on('finish', () => {
-                        resolve(true)
-                      })
-                  } else if (path.extname(downloadLink.name) === '.zip') {
-                    // extract from zip file
-                    console.log(chalk.keyword('orange')('Extracting zip archieve file...'))
-                    fs.createReadStream(downloadLink.name)
-                      .pipe(unzip.Extract({ path: updatePath }))
-                      .on('finish', () => {
-                        resolve(true)
-                      })
-                  } else {
-                    resolve(true)
-                  }
-                })
-                // wait up for extraction to complete
-                await extracting
-                // clean up the downloads
-                fs.unlinkSync(getAbsPath(downloadLink.name))
-                // finish
-                console.log(chalk.green('Update complete...'))
+    return new Promise(resolve => {
+      request.get({ url, headers: { 'User-Agent': 'git-auto-update' } }, async (error, response, body) => {
+        console.log('here')
+        if (!error && response.statusCode === 200) {
+          body = JSON.parse(body)
+          if (checkNeedForUpdate(body, version)) {
+            // update if necesarry
+            if (_.has(body, 'assets') && !useMaster) {
+              var downloadLink = false
+              if (osFamily.linux) {
+                downloadLink = parseDownloadLink(body, regex.linuxRegex, useMaster)
+              } else if (osFamily.win) {
+                downloadLink = parseDownloadLink(body, regex.windowsRegex, useMaster)
+              } else if (osFamily.mac) {
+                downloadLink = parseDownloadLink(body, regex.macRegex, useMaster)
               }
-            } else {
-              console.error(chalk.red('There is no download for the latest version of the software for this operating system.'))
+              if (downloadLink) {
+                // download the file
+                const fileDownloaded = await downloadFile(downloadLink.link, downloadLink.name, token)
+                if (fileDownloaded) {
+                  var extracting = new Promise(resolve => {
+                    if (path.extname(downloadLink.name) === '.gz') {
+                      // extract from tar ball or gzip
+                      console.log(chalk.keyword('orange')('Extracting gzip archieve file...'))
+                      fs.createReadStream(getAbsPath(downloadLink.name))
+                        .pipe(ungzip())
+                        .pipe(untar.extract(getAbsPath(updatePath)))
+                        .on('finish', () => {
+                          resolve(true)
+                        })
+                    } else if (path.extname(downloadLink.name) === '.tar') {
+                      console.log(chalk.keyword('orange')('Extracting tarball archieve file...'))
+                      fs.createReadStream(getAbsPath(downloadLink.name))
+                        .pipe(untar.extract(getAbsPath(updatePath)))
+                        .on('finish', () => {
+                          resolve(true)
+                        })
+                    } else if (path.extname(downloadLink.name) === '.zip') {
+                      // extract from zip file
+                      console.log(chalk.keyword('orange')('Extracting zip archieve file...'))
+                      fs.createReadStream(downloadLink.name)
+                        .pipe(unzip.Extract({ path: updatePath }))
+                        .on('finish', () => {
+                          resolve(true)
+                        })
+                    } else {
+                      resolve(true)
+                    }
+                  })
+                  // wait up for extraction to complete
+                  await extracting
+                  // clean up the downloads
+                  fs.unlinkSync(getAbsPath(downloadLink.name))
+                  // finish
+                  console.log(chalk.green('Update complete...'))
+                  resolve(true)
+                }
+              } else {
+                console.error(chalk.red('There is no download for the latest version of the software for this operating system.'))
+                resolve(false)
+              }
             }
           }
+        } else {
+          console.error(chalk.red('Can not reach the backend for updates.'))
+          resolve(false)
         }
-      } else {
-        console.error(chalk.red('Can not reach the backend for updates.'))
-      }
+      })
     })
   } else {
     console.error(chalk.red('Not connected to internet, can not check for updates.'))
@@ -101,8 +107,6 @@ function checkNeedForUpdate (data, version) {
     const latestVersion = semver.coerce(data.tag_name)
     version = semver.coerce(version)
     if (semver.valid(latestVersion) && semver.valid(version)) {
-      console.log(latestVersion)
-      console.log(version)
       const result = semver.gt(latestVersion, version)
       if (result) {
         console.log(chalk.yellow(`Found new update... v${latestVersion.version} > v${version.version}`))
@@ -142,7 +146,7 @@ function parseDownloadLink (body, regex, useMaster) {
 }
 
 function downloadFile (link, name, token) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     request({ url: link, headers: { 'User-Agent': 'git-auto-update', Authorization: `token ${token}`, Accept: 'application/octet-stream' } })
       .on('response', response => {
         if (response.statusCode === 200) {
