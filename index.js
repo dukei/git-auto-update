@@ -28,9 +28,8 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
       url = url.concat(`?access_token=${token}`)
     }
     // check for updates
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       request.get({ url, headers: { 'User-Agent': 'git-auto-update' } }, async (error, response, body) => {
-        console.log('here')
         if (!error && response.statusCode === 200) {
           body = JSON.parse(body)
           if (checkNeedForUpdate(body, version)) {
@@ -48,37 +47,7 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
                 // download the file
                 const fileDownloaded = await downloadFile(downloadLink.link, downloadLink.name, token)
                 if (fileDownloaded) {
-                  var extracting = new Promise(resolve => {
-                    if (path.extname(downloadLink.name) === '.gz') {
-                      // extract from tar ball or gzip
-                      console.log(chalk.keyword('orange')('Extracting gzip archieve file...'))
-                      fs.createReadStream(getAbsPath(downloadLink.name))
-                        .pipe(ungzip())
-                        .pipe(untar.extract(getAbsPath(updatePath)))
-                        .on('finish', () => {
-                          resolve(true)
-                        })
-                    } else if (path.extname(downloadLink.name) === '.tar') {
-                      console.log(chalk.keyword('orange')('Extracting tarball archieve file...'))
-                      fs.createReadStream(getAbsPath(downloadLink.name))
-                        .pipe(untar.extract(getAbsPath(updatePath)))
-                        .on('finish', () => {
-                          resolve(true)
-                        })
-                    } else if (path.extname(downloadLink.name) === '.zip') {
-                      // extract from zip file
-                      console.log(chalk.keyword('orange')('Extracting zip archieve file...'))
-                      fs.createReadStream(downloadLink.name)
-                        .pipe(unzip.Extract({ path: updatePath }))
-                        .on('finish', () => {
-                          resolve(true)
-                        })
-                    } else {
-                      resolve(true)
-                    }
-                  })
-                  // wait up for extraction to complete
-                  await extracting
+                  await extractData(downloadLink, updatePath)
                   // clean up the downloads
                   fs.unlinkSync(getAbsPath(downloadLink.name))
                   // finish
@@ -90,10 +59,11 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
                 resolve(false)
               }
             }
+          } else {
+            resolve(false)
           }
         } else {
           console.error(chalk.red('Can not reach the backend for updates.'))
-          resolve(false)
         }
       })
     })
@@ -177,6 +147,38 @@ function getAbsPath (relPath) {
   } else {
     return path.resolve(path.dirname(process.execPath), relPath)
   }
+}
+
+function extractData (downloadLink, updatePath) {
+  return new Promise((resolve) => {
+    if (path.extname(downloadLink.name) === '.gz') {
+      // extract from tar ball or gzip
+      console.log(chalk.keyword('orange')('Extracting gzip archieve file...'))
+      fs.createReadStream(getAbsPath(downloadLink.name))
+        .pipe(ungzip())
+        .pipe(untar.extract(getAbsPath(updatePath)))
+        .on('finish', () => {
+          resolve(true)
+        })
+    } else if (path.extname(downloadLink.name) === '.tar') {
+      console.log(chalk.keyword('orange')('Extracting tarball archieve file...'))
+      fs.createReadStream(getAbsPath(downloadLink.name))
+        .pipe(untar.extract(getAbsPath(updatePath)))
+        .on('finish', () => {
+          resolve(true)
+        })
+    } else if (path.extname(downloadLink.name) === '.zip') {
+      // extract from zip file
+      console.log(chalk.keyword('orange')('Extracting zip archieve file...'))
+      fs.createReadStream(downloadLink.name)
+        .pipe(unzip.Extract({ path: updatePath }))
+        .on('finish', () => {
+          resolve(true)
+        })
+    } else {
+      resolve(true)
+    }
+  })
 }
 
 module.exports = update
