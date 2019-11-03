@@ -20,9 +20,10 @@ const _ = require('lodash')
  * @param useMaster If you want to directly use the source files instead of compiled ones.
  * @param output Supresses or enables the output.
  * @param regex { windowsRegex, linuxRegex, macRegex } as in regex or string form to match the releases with the current operating system._mat-animation-noopable
- * @param updatePath BY DEFAULT IT WILL OVERWRITE ROOT FOLDER!!! Where will this update will be extracted?
+ * @param updatePath Where is the final update destination. Usually root of this project?
+ * @param temporaryPath Where to keep files when they are getting unarchieved before renaming.
  */
-function update ({ url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './', output = false }) {
+function update ({ url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './', temporaryPath = './update', output = false }) {
   if (online()) {
     // add access token if specified
     if (token) {
@@ -51,6 +52,23 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
                   await extractData(downloadLink, updatePath, output)
                   // clean up the downloads
                   fs.unlinkSync(getAbsPath(downloadLink.name))
+                  // move files
+                  if (temporaryPath !== updatePath) {
+                    fs.readdir(getAbsPath(temporaryPath), (err, files) => {
+                      // handling error
+                      if (err) {
+                        if (output) console.error(chalk.red(`Unable to move files: ${err}`))
+                      }
+                      // listing all files using forEach
+                      files.forEach(function (file) {
+                        fs.rename(getAbsPath(temporaryPath + file), getAbsPath(updatePath + file), (err) => {
+                          if (err) {
+                            if (output) console.error(chalk.red(`Unable to move files: ${err}`))
+                          }
+                        })
+                      })
+                    })
+                  }
                   // finish
                   if (output) {
                     console.log(chalk.green('Update complete...'))
