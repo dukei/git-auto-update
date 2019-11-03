@@ -1,7 +1,7 @@
 ```
 name:         | git-auto-update-release
 compiler:     | nodejs
-version:      | v1.1.3, 20191103
+version:      | v1.1.4, 20191103
 ```
 
 # git-auto-update

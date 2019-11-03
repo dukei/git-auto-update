@@ -19,9 +19,9 @@ const _ = require('lodash')
  * @param version Current version. Just to compare with remote version.
  * @param useMaster If you want to directly use the source files instead of compiled ones.
  * @param regex { windowsRegex, linuxRegex, macRegex } as in regex or string form to match the releases with the current operating system._mat-animation-noopable
- * @param updatePath BY DEFAULT IT WILL OVERWRITE ROOT FOLDER!!! Where will this update will be extracted? 
+ * @param updatePath BY DEFAULT IT WILL OVERWRITE ROOT FOLDER!!! Where will this update will be extracted?
  */
-function update ({ url, token, version, useMaster = false, regex: { windowsRegex = /-windows-/, linuxRegex = /-linux-/, macRegex = /-darwin-/ }, updatePath = './' }) {
+function update ({ url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './' }) {
   if (online()) {
     // add access token if specified
     if (token) {
@@ -36,11 +36,11 @@ function update ({ url, token, version, useMaster = false, regex: { windowsRegex
           if (_.has(body, 'assets') && !useMaster) {
             var downloadLink = false
             if (osFamily.linux) {
-              downloadLink = parseDownloadLink(body, linuxRegex, useMaster)
+              downloadLink = parseDownloadLink(body, regex.linuxRegex, useMaster)
             } else if (osFamily.win) {
-              downloadLink = parseDownloadLink(body, windowsRegex, useMaster)
+              downloadLink = parseDownloadLink(body, regex.windowsRegex, useMaster)
             } else if (osFamily.mac) {
-              downloadLink = parseDownloadLink(body, macRegex, useMaster)
+              downloadLink = parseDownloadLink(body, regex.macRegex, useMaster)
             }
             if (downloadLink) {
               // download the file
@@ -101,6 +101,8 @@ function checkNeedForUpdate (data, version) {
     const latestVersion = semver.coerce(data.tag_name)
     version = semver.coerce(version)
     if (semver.valid(latestVersion) && semver.valid(version)) {
+      console.log(latestVersion)
+      console.log(version)
       const result = semver.gt(latestVersion, version)
       if (result) {
         console.log(chalk.yellow(`Found new update... v${latestVersion.version} > v${version.version}`))
