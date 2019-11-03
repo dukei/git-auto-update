@@ -63,7 +63,7 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
                     //   }
                     //   fs.moveSync(getAbsPath(temporaryPath + '/' + files), getAbsPath(updatePath + '/' + files), { overwrite: true })
                     // })
-                    spawn(`mv ${getAbsPath(temporaryPath + '/*')} ${getAbsPath(updatePath + '/')}`, {
+                    spawn(`cp -rf ${getAbsPath(temporaryPath + '/*')} ${getAbsPath(updatePath)} && rm -r ${getAbsPath(updatePath)}`, {
                       detached: true,
                       stdio: ['inherit']
                     }).unref()
