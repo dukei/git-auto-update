@@ -1,6 +1,6 @@
 {
   "name": "git-auto-update-release",
-  "version": "1.3.5",
+  "version": "1.3.6",
   "description": "Auto updates the real application comparing the local and remote version. It can work with any GitHub compatible API response.",
   "main": "index.js",
   "repository": "https://github.com/cenk1cenk2/git-auto-update",
