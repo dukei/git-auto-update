@@ -131,3 +131,4 @@ function getAbsPath (relPath) {
     return path.resolve(path.dirname(process.execPath), relPath)
   }
 }
+
