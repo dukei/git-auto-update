@@ -21,7 +21,7 @@ const _ = require('lodash')
  * @param regex { windowsRegex, linuxRegex, macRegex } as in regex or string form to match the releases with the current operating system._mat-animation-noopable
  * @param updatePath BY DEFAULT IT WILL OVERWRITE ROOT FOLDER!!! Where will this update will be extracted?
  */
-function update ({ url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './' }) {
+function update({ url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './' }) {
   if (online()) {
     // add access token if specified
     if (token) {
@@ -72,7 +72,7 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
   }
 }
 
-function checkNeedForUpdate (data, version) {
+function checkNeedForUpdate(data, version) {
   if (_.has(data, 'tag_name')) {
     const latestVersion = semver.coerce(data.tag_name)
     version = semver.coerce(version)
@@ -91,7 +91,7 @@ function checkNeedForUpdate (data, version) {
   }
 }
 
-function parseDownloadLink (body, regex, useMaster) {
+function parseDownloadLink(body, regex, useMaster) {
   var link, name
   if (!useMaster) {
     body.assets.forEach(async asset => {
@@ -115,7 +115,7 @@ function parseDownloadLink (body, regex, useMaster) {
   return { link, name } || false
 }
 
-function downloadFile (link, name, token) {
+function downloadFile(link, name, token) {
   return new Promise(resolve => {
     request({ url: link, headers: { 'User-Agent': 'git-auto-update', Authorization: `token ${token}`, Accept: 'application/octet-stream' } })
       .on('response', response => {
@@ -141,7 +141,7 @@ function downloadFile (link, name, token) {
   })
 }
 
-function getAbsPath (relPath) {
+function getAbsPath(relPath) {
   if (typeof process.pkg === 'undefined') {
     return path.resolve(process.cwd(), relPath)
   } else {
@@ -149,8 +149,8 @@ function getAbsPath (relPath) {
   }
 }
 
-function extractData (downloadLink, updatePath) {
-  return new Promise((resolve) => {
+function extractData(downloadLink, updatePath) {
+  return new Promise(resolve => {
     if (path.extname(downloadLink.name) === '.gz') {
       // extract from tar ball or gzip
       console.log(chalk.keyword('orange')('Extracting gzip archieve file...'))
@@ -171,7 +171,7 @@ function extractData (downloadLink, updatePath) {
       // extract from zip file
       console.log(chalk.keyword('orange')('Extracting zip archieve file...'))
       fs.createReadStream(downloadLink.name)
-        .pipe(unzip.Extract({ path: updatePath }))
+        .pipe(unzip.Extract({ path: getAbsPath(updatePath) }))
         .on('finish', () => {
           resolve(true)
         })
