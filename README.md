@@ -1,7 +1,7 @@
 ```
 name:         | git-auto-update-release
 compiler:     | nodejs
-version:      | v1.2.0, 20191103
+version:      | v1.3.0, 20191103
 ```
 
 # git-auto-update
@@ -24,6 +24,7 @@ It accepts one big object for all the options.
  * @param token: If using a private reporisitory a token can be provided for access._mat-animation-noopable
  * @param version: Current version. Just to compare with remote version.
  * @param useMaster: If you want to directly use the source files instead of compiled ones.
+ * @param output Supresses or enables the output.
  * @param regex: { windowsRegex, linuxRegex, macRegex } as in regex or string form to match the releases with the current operating system._mat-animation-noopable
  * @param updatePath: BY DEFAULT IT WILL OVERWRITE ROOT FOLDER!!! Where will this update will be extracted? 
 
@@ -31,7 +32,7 @@ URL and version is required.
 
 The defaults are as follows:
  ```
-  { useMaster : false, regex: { windowsRegex : /-windows-/, linuxRegex : /-linux-/, macRegex : /-darwin-/ }, updatePath : './' }
+  { useMaster : false, regex: { windowsRegex : /-windows-/, linuxRegex : /-linux-/, macRegex : /-darwin-/ }, updatePath : './', output = false }
  ```
 
 ## Return Value
