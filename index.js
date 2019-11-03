@@ -7,11 +7,22 @@ const fs = require('fs')
 const ProgressBar = require('progress')
 const path = require('path')
 const unzip = require('unzipper')
-const untar = require('tar-pack').unpack
+const untar = require('tar-fs')
+const ungzip = require('gunzip-maybe')
 const _ = require('lodash')
 
-async function update ({ url, token, version, useMaster = false, regex: { windowsRegex = /-windows-/, linuxRegex = /-linux-/ } }) {
-  if (await online()) {
+/**
+ * Accepts one object to do it all.
+ * @param {Object} Object Elements listed below
+ * @param url Remote endpoint which the script will ask the latest version. It has to be GitHub compatible output form.
+ * @param token If using a private reporisitory a token can be provided for access._mat-animation-noopable
+ * @param version Current version. Just to compare with remote version.
+ * @param useMaster If you want to directly use the source files instead of compiled ones.
+ * @param regex { windowsRegex, linuxRegex, macRegex } as in regex or string form to match the releases with the current operating system._mat-animation-noopable
+ * @param updatePath BY DEFAULT IT WILL OVERWRITE ROOT FOLDER!!! Where will this update will be extracted? 
+ */
+function update ({ url, token, version, useMaster = false, regex: { windowsRegex = /-windows-/, linuxRegex = /-linux-/, macRegex = /-darwin-/ }, updatePath = './' }) {
+  if (online()) {
     // add access token if specified
     if (token) {
       url = url.concat(`?access_token=${token}`)
@@ -28,21 +39,48 @@ async function update ({ url, token, version, useMaster = false, regex: { window
               downloadLink = parseDownloadLink(body, linuxRegex, useMaster)
             } else if (osFamily.win) {
               downloadLink = parseDownloadLink(body, windowsRegex, useMaster)
+            } else if (osFamily.mac) {
+              downloadLink = parseDownloadLink(body, macRegex, useMaster)
             }
             if (downloadLink) {
               // download the file
-              await downloadFile(downloadLink.link, downloadLink.name, token)
-              if (path.extname(downloadLink.name) === '.gz' || path.extname(downloadLink.name) === '.tar') {
-                // extract from tar ball or gzip
-                console.log(chalk.green(`Extracting ${path.extname(downloadLink.name) === 'gz' ? 'gzip' : 'tarball'} file...`))
-                // fs.createReadStream(getAbsPath(downloadLink.name)).pipe(untar(getAbsPath('./'), function (err) {
-                  // if (err) console.error(err.stack)
-                  // else console.log('done')
-                // }))
-              } else if (path.extname(downloadLink.name) === '.zip') {
-                // extract from zip file
-                console.log(chalk.green('Extracting zip file...'))
-                // fs.createReadStream(downloadLink.name).pipe(unzip.Extract({ path: './' }))
+              const fileDownloaded = await downloadFile(downloadLink.link, downloadLink.name, token)
+              if (fileDownloaded) {
+                var extracting = new Promise(resolve => {
+                  if (path.extname(downloadLink.name) === '.gz') {
+                    // extract from tar ball or gzip
+                    console.log(chalk.keyword('orange')('Extracting gzip archieve file...'))
+                    fs.createReadStream(getAbsPath(downloadLink.name))
+                      .pipe(ungzip())
+                      .pipe(untar.extract(getAbsPath(updatePath)))
+                      .on('finish', () => {
+                        resolve(true)
+                      })
+                  } else if (path.extname(downloadLink.name) === '.tar') {
+                    console.log(chalk.keyword('orange')('Extracting tarball archieve file...'))
+                    fs.createReadStream(getAbsPath(downloadLink.name))
+                      .pipe(untar.extract(getAbsPath(updatePath)))
+                      .on('finish', () => {
+                        resolve(true)
+                      })
+                  } else if (path.extname(downloadLink.name) === '.zip') {
+                    // extract from zip file
+                    console.log(chalk.keyword('orange')('Extracting zip archieve file...'))
+                    fs.createReadStream(downloadLink.name)
+                      .pipe(unzip.Extract({ path: updatePath }))
+                      .on('finish', () => {
+                        resolve(true)
+                      })
+                  } else {
+                    resolve(true)
+                  }
+                })
+                // wait up for extraction to complete
+                await extracting
+                // clean up the downloads
+                fs.unlinkSync(getAbsPath(downloadLink.name))
+                // finish
+                console.log(chalk.green('Update complete...'))
               }
             } else {
               console.error(chalk.red('There is no download for the latest version of the software for this operating system.'))
@@ -83,8 +121,8 @@ function parseDownloadLink (body, regex, useMaster) {
     body.assets.forEach(async asset => {
       if (_.has(asset, 'name')) {
         if (asset.name.match(regex)) {
-          if (_.has(asset, 'browser_download_url')) {
-            link = asset.browser_download_url
+          if (_.has(asset, 'url')) {
+            link = asset.url
             name = asset.name
           } else {
             console.error(chalk.red('Download URL can not be found for update.'))
@@ -115,6 +153,9 @@ function downloadFile (link, name, token) {
             console.log(chalk.green('Downloading update...'))
           }
           response.pipe(fs.createWriteStream(name))
+        } else {
+          console.error(chalk.bgRed(chalk.white('Can not download update from update server.')))
+          resolve(false)
         }
       })
       .on('error', err => {
@@ -132,3 +173,4 @@ function getAbsPath (relPath) {
   }
 }
 
+module.exports = update
