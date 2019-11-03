@@ -23,7 +23,9 @@ const _ = require('lodash')
  * @param updatePath Where is the final update destination. Usually root of this project?
  * @param temporaryPath Where to keep files when they are getting unarchieved before renaming.
  */
-function update ({ url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './', temporaryPath = './update', output = false }) {
+function update({ url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './', temporaryPath = './update', output = false }) {
+  // catch uncaught exceptions so the api do not crash
+  process.on('uncaughtException', () => {})
   if (online()) {
     // add access token if specified
     if (token) {
@@ -49,7 +51,7 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
                 // download the file
                 const fileDownloaded = await downloadFile(downloadLink.link, downloadLink.name, token, output)
                 if (fileDownloaded) {
-                  await extractData(downloadLink, updatePath, output)
+                  await extractData(downloadLink, temporaryPath, output)
                   // clean up the downloads
                   fs.unlinkSync(getAbsPath(downloadLink.name))
                   // move files
@@ -60,12 +62,9 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
                         if (output) console.error(chalk.red(`Unable to move files: ${err}`))
                       }
                       // listing all files using forEach
-                      files.forEach(function (file) {
-                        fs.rename(getAbsPath(temporaryPath + file), getAbsPath(updatePath + file), (err) => {
-                          if (err) {
-                            if (output) console.error(chalk.red(`Unable to move files: ${err}`))
-                          }
-                        })
+                      files.forEach(function(file) {
+                        fs.unlinkSync(getAbsPath(updatePath + '/' + file))
+                        fs.renameSync(getAbsPath(temporaryPath + '/' + file), getAbsPath(updatePath + '/' + file))
                       })
                     })
                   }
@@ -99,7 +98,7 @@ function update ({ url, token, version, useMaster = false, regex = { windowsRege
   }
 }
 
-function checkNeedForUpdate (data, version, output) {
+function checkNeedForUpdate(data, version, output) {
   if (_.has(data, 'tag_name')) {
     const latestVersion = semver.coerce(data.tag_name)
     version = semver.coerce(version)
@@ -124,7 +123,7 @@ function checkNeedForUpdate (data, version, output) {
   }
 }
 
-function parseDownloadLink (body, regex, useMaster, output) {
+function parseDownloadLink(body, regex, useMaster, output) {
   var link, name
   if (!useMaster) {
     body.assets.forEach(async asset => {
@@ -152,7 +151,7 @@ function parseDownloadLink (body, regex, useMaster, output) {
   return { link, name } || false
 }
 
-function downloadFile (link, name, token, output) {
+function downloadFile(link, name, token, output) {
   return new Promise(resolve => {
     request({ url: link, headers: { 'User-Agent': 'git-auto-update', Authorization: `token ${token}`, Accept: 'application/octet-stream' } })
       .on('response', response => {
@@ -184,7 +183,7 @@ function downloadFile (link, name, token, output) {
   })
 }
 
-function getAbsPath (relPath) {
+function getAbsPath(relPath) {
   if (typeof process.pkg === 'undefined') {
     return path.resolve(process.cwd(), relPath)
   } else {
@@ -192,7 +191,7 @@ function getAbsPath (relPath) {
   }
 }
 
-function extractData (downloadLink, updatePath, output) {
+function extractData(downloadLink, updatePath, output) {
   return new Promise(resolve => {
     if (path.extname(downloadLink.name) === '.gz') {
       // extract from tar ball or gzip
