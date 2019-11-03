@@ -3,7 +3,7 @@ const request = require('request')
 const chalk = require('chalk')
 const semver = require('semver')
 const osFamily = require('os-family')
-const fs = require('fs')
+const fs = require('fs-extra')
 const ProgressBar = require('progress')
 const path = require('path')
 const unzip = require('unzipper')
@@ -56,17 +56,7 @@ function update({ url, token, version, useMaster = false, regex = { windowsRegex
                   fs.unlinkSync(getAbsPath(downloadLink.name))
                   // move files
                   if (temporaryPath !== updatePath) {
-                    fs.readdir(getAbsPath(temporaryPath), (err, files) => {
-                      // handling error
-                      if (err) {
-                        if (output) console.error(chalk.red(`Unable to move files: ${err}`))
-                      }
-                      // listing all files using forEach
-                      files.forEach(function(file) {
-                        fs.unlinkSync(getAbsPath(updatePath + '/' + file))
-                        fs.renameSync(getAbsPath(temporaryPath + '/' + file), getAbsPath(updatePath + '/' + file))
-                      })
-                    })
+                    fs.moveSync(getAbsPath(temporaryPath), getAbsPath(updatePath), { overwrite: true })
                   }
                   // finish
                   if (output) {
