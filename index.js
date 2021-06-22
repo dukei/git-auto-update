@@ -10,7 +10,6 @@ const unzip = require('unzipper')
 const untar = require('tar-fs')
 const ungzip = require('gunzip-maybe')
 const _ = require('lodash')
-const { spawn } = require('child_process')
 
 /**
  * Accepts one object to do it all.
@@ -26,7 +25,7 @@ const { spawn } = require('child_process')
  */
 function update({ url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './', temporaryPath = './update', output = false }) {
   // catch uncaught exceptions so the api do not crash
-  process.on('uncaughtException', () => {})
+  process.on('uncaughtException', (e) => {console.error(e)})
   if (online()) {
     // add access token if specified
     if (token) {
@@ -55,15 +54,11 @@ function update({ url, token, version, useMaster = false, regex = { windowsRegex
                   await extractData(downloadLink, temporaryPath, output).catch()
                   // move files
                   if (temporaryPath !== updatePath) {
-                    fs.copySync(getAbsPath(temporaryPath + '/'), getAbsPath(updatePath + '/'), { overwrite: true })
-                    fs.removeSync(getAbsPath(temporaryPath + '/'))
-                    // spawn(`sleep 3 && cp -rf ${getAbsPath(temporaryPath + '/')}/* ${getAbsPath(updatePath)} && rm -r ${getAbsPath(temporaryPath)}`, {
-                    //   detached: true,
-                    //   stdio: ['ignore']
-                    // })
+                    await fs.copy(getAbsPath(temporaryPath + '/'), getAbsPath(updatePath + '/'), { overwrite: true })
+                    await fs.remove(getAbsPath(temporaryPath + '/'))
                   }
                   // clean up the downloads
-                  fs.unlinkSync(getAbsPath(downloadLink.name))
+                  await fs.unlink(getAbsPath(downloadLink.name))
                   // finish
                   if (output) {
                     console.log(chalk.green('Update complete...'))
@@ -125,8 +120,8 @@ function parseDownloadLink(body, regex, useMaster, output) {
     body.assets.map(async asset => {
       if (_.has(asset, 'name')) {
         if (asset.name.match(regex)) {
-          if (_.has(asset, 'url')) {
-            link = asset.url
+          if (_.has(asset, 'browser_download_url')) {
+            link = asset.browser_download_url
             name = asset.name
           } else {
             if (output) {
@@ -192,7 +187,7 @@ function extractData(downloadLink, updatePath, output) {
     if (path.extname(downloadLink.name) === '.gz') {
       // extract from tar ball or gzip
       if (output) {
-        console.log(chalk.keyword('orange')('Extracting gzip archieve file...'))
+        console.log(chalk.keyword('orange')('Extracting gzip archive file...'))
       }
       fs.createReadStream(getAbsPath(downloadLink.name))
         .pipe(ungzip())
@@ -202,7 +197,7 @@ function extractData(downloadLink, updatePath, output) {
         })
     } else if (path.extname(downloadLink.name) === '.tar') {
       if (output) {
-        console.log(chalk.keyword('orange')('Extracting tarball archieve file...'))
+        console.log(chalk.keyword('orange')('Extracting tarball archive file...'))
       }
       fs.createReadStream(getAbsPath(downloadLink.name))
         .pipe(untar.extract(getAbsPath(updatePath)))
@@ -212,7 +207,7 @@ function extractData(downloadLink, updatePath, output) {
     } else if (path.extname(downloadLink.name) === '.zip') {
       // extract from zip file
       if (output) {
-        console.log(chalk.keyword('orange')('Extracting zip archieve file...'))
+        console.log(chalk.keyword('orange')('Extracting zip archive file...'))
       }
       fs.createReadStream(downloadLink.name)
         .pipe(unzip.Extract({ path: getAbsPath(updatePath) }))
