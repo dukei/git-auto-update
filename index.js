@@ -23,9 +23,73 @@ const _ = require('lodash')
  * @param updatePath Where is the final update destination. Usually root of this project?
  * @param temporaryPath Where to keep files when they are getting unarchieved before renaming.
  */
-function update({ url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './', temporaryPath = './update', output = false }) {
+async function update({ info, url, token, version, useMaster = false, regex = { windowsRegex: /-windows-/, linuxRegex: /-linux-/, macRegex: /-darwin-/ }, updatePath = './', temporaryPath = './update', output = false }) {
+  // catch uncaught exceptions so the api do not crash
+  process.on('uncaughtException', (e) => {console.error(e)});
+
+  const freshUpdate = !info;
+
+  if(freshUpdate)
+    info = await getLatestReleaseInfo({url, token, output});
+  if(!info)
+    return false;
+
+  if (checkNeedForUpdate(info, version, output && freshUpdate)) {
+    // update if necesarry
+    if (_.has(info, 'assets') && !useMaster) {
+      var downloadLink = false
+      if (osFamily.linux) {
+        downloadLink = parseDownloadLink(info, regex.linuxRegex, useMaster, output)
+      } else if (osFamily.win) {
+        downloadLink = parseDownloadLink(info, regex.windowsRegex, useMaster, output)
+      } else if (osFamily.mac) {
+        downloadLink = parseDownloadLink(info, regex.macRegex, useMaster, output)
+      }
+      if (downloadLink) {
+        // download the file
+        const fileDownloaded = await downloadFile(downloadLink.link, downloadLink.name, token, output).catch()
+        if (fileDownloaded) {
+          await extractData(downloadLink, temporaryPath, output).catch()
+          // move files
+          if (temporaryPath !== updatePath) {
+            await fs.copy(getAbsPath(temporaryPath + '/'), getAbsPath(updatePath + '/'), {overwrite: true})
+            await fs.remove(getAbsPath(temporaryPath + '/'))
+          }
+          // clean up the downloads
+          await fs.unlink(getAbsPath(downloadLink.name))
+          // finish
+          if (output) {
+            console.log(chalk.green('Update complete...'))
+          }
+          return true
+        }
+      } else {
+        if (output) {
+          console.error(chalk.red('There is no download for the latest version of the software for this operating system.'))
+        }
+        return false
+      }
+    }
+  }
+}
+
+async function check({info, url, token, version, output}){
   // catch uncaught exceptions so the api do not crash
   process.on('uncaughtException', (e) => {console.error(e)})
+
+  if(!info)
+    info = await getLatestReleaseInfo({url, token, output});
+  if(!info)
+    return false;
+
+  if (checkNeedForUpdate(info, version, output)) {
+    return true;
+  }else{
+    return false;
+  }
+}
+
+async function getLatestReleaseInfo({url, token, output}){
   if (online()) {
     // add access token if specified
     if (token) {
@@ -33,61 +97,24 @@ function update({ url, token, version, useMaster = false, regex = { windowsRegex
     }
     // check for updates
     return new Promise((resolve, reject) => {
-      request.get({ url, headers: { 'User-Agent': 'git-auto-update' } }, async (error, response, body) => {
+      request.get({ url, headers: { 'User-Agent': 'git-auto-update' } }, (error, response, body) => {
         if (!error && response.statusCode === 200) {
-          body = JSON.parse(body)
-          if (checkNeedForUpdate(body, version, output)) {
-            // update if necesarry
-            if (_.has(body, 'assets') && !useMaster) {
-              var downloadLink = false
-              if (osFamily.linux) {
-                downloadLink = parseDownloadLink(body, regex.linuxRegex, useMaster, output)
-              } else if (osFamily.win) {
-                downloadLink = parseDownloadLink(body, regex.windowsRegex, useMaster, output)
-              } else if (osFamily.mac) {
-                downloadLink = parseDownloadLink(body, regex.macRegex, useMaster, output)
-              }
-              if (downloadLink) {
-                // download the file
-                const fileDownloaded = await downloadFile(downloadLink.link, downloadLink.name, token, output).catch()
-                if (fileDownloaded) {
-                  await extractData(downloadLink, temporaryPath, output).catch()
-                  // move files
-                  if (temporaryPath !== updatePath) {
-                    await fs.copy(getAbsPath(temporaryPath + '/'), getAbsPath(updatePath + '/'), { overwrite: true })
-                    await fs.remove(getAbsPath(temporaryPath + '/'))
-                  }
-                  // clean up the downloads
-                  await fs.unlink(getAbsPath(downloadLink.name))
-                  // finish
-                  if (output) {
-                    console.log(chalk.green('Update complete...'))
-                  }
-                  resolve(true)
-                }
-              } else {
-                if (output) {
-                  console.error(chalk.red('There is no download for the latest version of the software for this operating system.'))
-                }
-                resolve(false)
-              }
-            }
-          } else {
-            resolve(false)
-          }
-        } else {
+          resolve(JSON.parse(body));
+        }else{
           if (output) {
-            console.error(chalk.red('Can not reach the backend for updates.'))
+            console.error(chalk.red('Can not reach the backend for update: ' + error))
           }
+          resolve(null);
         }
-      })
-    })
-  } else {
+      });
+    });
+  }else{
     if (output) {
       console.error(chalk.red('Not connected to internet, can not check for updates.'))
     }
   }
 }
+
 
 function checkNeedForUpdate(data, version, output) {
   if (_.has(data, 'tag_name')) {
@@ -220,4 +247,8 @@ function extractData(downloadLink, updatePath, output) {
   })
 }
 
-module.exports = update
+module.exports = {
+  update,
+  check,
+  getLatestReleaseInfo
+}
