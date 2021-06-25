@@ -47,16 +47,17 @@ async function update({ info, url, token, version, useMaster = false, regex = { 
       }
       if (downloadLink) {
         // download the file
-        const fileDownloaded = await downloadFile(downloadLink.link, downloadLink.name, token, output).catch()
+        const zipFilePath = path.join(updatePath, downloadLink.name);
+        const fileDownloaded = await downloadFile(downloadLink.link, zipFilePath, token, output).catch()
         if (fileDownloaded) {
-          await extractData(downloadLink, temporaryPath, output).catch()
+          await extractData(zipFilePath, temporaryPath, output).catch()
           // move files
           if (temporaryPath !== updatePath) {
             await fs.copy(getAbsPath(temporaryPath + '/'), getAbsPath(updatePath + '/'), {overwrite: true})
             await fs.remove(getAbsPath(temporaryPath + '/'))
           }
           // clean up the downloads
-          await fs.unlink(getAbsPath(downloadLink.name))
+          await fs.unlink(getAbsPath(zipFilePath))
           // finish
           if (output) {
             console.log(chalk.green('Update complete...'))
@@ -209,34 +210,34 @@ function getAbsPath(relPath) {
   }
 }
 
-function extractData(downloadLink, updatePath, output) {
+function extractData(zipPathName, updatePath, output) {
   return new Promise(resolve => {
-    if (path.extname(downloadLink.name) === '.gz') {
+    if (path.extname(zipPathName) === '.gz') {
       // extract from tar ball or gzip
       if (output) {
         console.log(chalk.keyword('orange')('Extracting gzip archive file...'))
       }
-      fs.createReadStream(getAbsPath(downloadLink.name))
+      fs.createReadStream(getAbsPath(zipPathName))
         .pipe(ungzip())
         .pipe(untar.extract(getAbsPath(updatePath)))
         .on('finish', () => {
           resolve(true)
         })
-    } else if (path.extname(downloadLink.name) === '.tar') {
+    } else if (path.extname(zipPathName) === '.tar') {
       if (output) {
         console.log(chalk.keyword('orange')('Extracting tarball archive file...'))
       }
-      fs.createReadStream(getAbsPath(downloadLink.name))
+      fs.createReadStream(getAbsPath(zipPathName))
         .pipe(untar.extract(getAbsPath(updatePath)))
         .on('finish', () => {
           resolve(true)
         })
-    } else if (path.extname(downloadLink.name) === '.zip') {
+    } else if (path.extname(zipPathName) === '.zip') {
       // extract from zip file
       if (output) {
         console.log(chalk.keyword('orange')('Extracting zip archive file...'))
       }
-      fs.createReadStream(downloadLink.name)
+      fs.createReadStream(zipPathName)
         .pipe(unzip.Extract({ path: getAbsPath(updatePath) }))
         .on('finish', () => {
           resolve(true)
