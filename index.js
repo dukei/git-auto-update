@@ -103,7 +103,7 @@ async function getLatestReleaseInfo({url, token, output}){
           resolve(JSON.parse(body));
         }else{
           if (output) {
-            console.error(chalk.red('Can not reach the backend for update: ' + error))
+            console.error(chalk.red('Can not reach the backend for update: ' + (error || `[${response.statusCode}] ${body}`)));
           }
           resolve(null);
         }
