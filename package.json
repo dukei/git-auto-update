@@ -1,6 +1,6 @@
 {
   "name": "git-auto-update",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Auto updates the real application comparing the local and remote version. It can work with any GitHub compatible API response.",
   "main": "index.js",
   "repository": "https://github.com/dukei/git-auto-update",
